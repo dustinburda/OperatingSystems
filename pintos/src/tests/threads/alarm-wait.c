@@ -15,7 +15,15 @@ static void test_sleep (int thread_cnt, int iterations);
 void
 test_alarm_single (void) 
 {
+//  int64_t start = timer_ticks ();
+//  printf("start: %lld\n", start);
+//  timer_sleep(50);
+//  int64_t end = timer_ticks ();
+//  printf("end: %lld\n", end);
+//  int64_t elapsed = end - start;
+//  printf("elapsed: %lld\n", elapsed);
   test_sleep (5, 1);
+//    test_sleep(1,1);
 }
 
 void
@@ -83,7 +91,7 @@ test_sleep (int thread_cnt, int iterations)
     {
       struct sleep_thread *t = threads + i;
       char name[16];
-      
+
       t->test = &test;
       t->id = i;
       t->duration = (i + 1) * 10;

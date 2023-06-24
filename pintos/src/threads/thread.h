@@ -23,6 +23,7 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+#define INVALID_WAKEUP_TIME -1ULL
 
 /* A kernel thread or user process.
 
@@ -93,6 +94,8 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    int64_t wakeup_time;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -137,5 +140,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void thread_sleep(int64_t wakeup_time);
+void add_ready_list(struct list_elem *elem);
+bool priority_less (const struct list_elem *a, const struct list_elem *b, void *aux);
+bool priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */
