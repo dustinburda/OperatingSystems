@@ -29,17 +29,19 @@ test_priority_sema (void)
       snprintf (name, sizeof name, "priority %d", priority);
       thread_create (name, priority, priority_sema_thread, NULL);
     }
-
+//    printf("Main before releasing semaphores\n");
   for (i = 0; i < 10; i++) 
     {
       sema_up (&sema);
-      msg ("Back in main thread."); 
+      msg ("Back in main thread.");
     }
 }
 
 static void
 priority_sema_thread (void *aux UNUSED) 
 {
+//    printf("Before Sema Down  name: %s!\n", thread_name ());
   sema_down (&sema);
+//  printf("After Sema Down! name: %s\n", thread_name ());
   msg ("Thread %s woke up.", thread_name ());
 }
