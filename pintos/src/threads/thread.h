@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,6 +97,10 @@ struct thread
 
     int64_t wakeup_time;
 
+    struct list lock_list;
+    uint8_t orig_priority;
+    struct lock* wait_on_lock;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -145,5 +150,7 @@ void thread_sleep(int64_t wakeup_time);
 void add_ready_list(struct list_elem *elem);
 bool priority_less (const struct list_elem *a, const struct list_elem *b, void *aux);
 bool priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux);
+
+void set_max_priority_thread(struct thread* pthread, uint8_t priority);
 
 #endif /* threads/thread.h */

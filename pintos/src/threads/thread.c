@@ -364,6 +364,7 @@ thread_set_priority (int new_priority)
 {
   int old_priority = thread_current ()->priority;
   thread_current ()->priority = new_priority;
+  thread_current ()->orig_priority = new_priority;
 
   if(new_priority < old_priority){
       thread_yield();
@@ -510,6 +511,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->wakeup_time = INVALID_WAKEUP_TIME;
   list_push_back (&all_list, &t->allelem);
+
+  list_init(& t->lock_list);
+  t->orig_priority = priority;
+  t->wait_on_lock = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -660,4 +665,14 @@ bool priority_greater (const struct list_elem *a, const struct list_elem *b, voi
     struct thread *b_thread = list_entry(b, struct thread, elem);
 
     return a_thread->priority > b_thread->priority;
+}
+
+void set_max_priority_thread(struct thread* pthread, uint8_t priority){
+    if(pthread->priority >= priority)
+        return;
+
+    pthread->priority = priority;
+
+    if(pthread->wait_on_lock != NULL)
+        set_max_priority_lock(pthread->wait_on_lock, pthread->priority);
 }

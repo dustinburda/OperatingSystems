@@ -29,7 +29,7 @@ test_priority_sema (void)
       snprintf (name, sizeof name, "priority %d", priority);
       thread_create (name, priority, priority_sema_thread, NULL);
     }
-//    printf("Main before releasing semaphores\n");
+//   printf("Main before releasing semaphores\n");
   for (i = 0; i < 10; i++) 
     {
       sema_up (&sema);

@@ -159,7 +159,7 @@ sema_test_helper (void *sema_)
       sema_up (&sema[1]);
     }
 }
-
+
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -182,6 +182,8 @@ lock_init (struct lock *lock)
 
   lock->holder = NULL;
   sema_init (&lock->semaphore, 1);
+
+  lock->max_priority = INVALID_PRIORITY;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -199,9 +201,29 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread* cur = thread_current ();
+  cur->wait_on_lock = lock;
+
+//  // priority donation
+  set_max_priority_lock(lock, cur->priority);
+
+  // original code
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+  cur->wait_on_lock = NULL;
+  list_push_back (&(cur->lock_list), &(lock->lock_elem));
 }
+
+void set_max_priority_lock(struct lock * plock, uint8_t priority){
+    if(plock->max_priority >= priority)
+        return;
+
+    plock->max_priority = priority;
+
+    if(plock->holder != NULL)
+        set_max_priority_thread(plock->holder, plock->max_priority);
+};
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -234,6 +256,48 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  struct thread* cur = thread_current ();
+  list_remove(& (lock->lock_elem));
+
+  //set thread's priority to max priority among remaining lock
+
+
+  struct list_elem* max_lock_elem  = list_max(& cur->lock_list, lock_priority_func, NULL);
+  if(max_lock_elem == list_tail(& cur->lock_list)){
+      cur->priority = cur->orig_priority;
+  }
+  struct lock* max_lock = list_entry(max_lock_elem, struct lock, lock_elem);
+
+  cur->priority = (max_lock->max_priority > cur->orig_priority) ? max_lock->max_priority : cur->orig_priority;
+
+
+  struct list_elem* max_thread_elem = list_max(& lock->semaphore.waiters, semaphore_priority_less, NULL);
+  if(max_thread_elem == list_tail (& lock->semaphore.waiters)){
+      lock->max_priority = INVALID_PRIORITY;
+  } else {
+      struct thread* max_thread = list_entry(max_thread_elem, struct thread, elem);
+      lock->max_priority = max_thread->priority;
+  }
+
+
+    //printf("%s, cur: %d, orig: %d\n", cur->name, cur->priority, cur->orig_priority);
+//  printf("AHAHAHAHAHHAHAHHAHAH, cur:%d\n orig: %d\n", cur->priority, cur->orig_priority);
+
+//   uint8_t lock_max_priority = INVALID_PRIORITY;
+//
+//  struct list_elem *e;
+//
+//  for(e = list_begin(& cur->lock_list); e != list_end(& cur->lock_list); e = list_next(e) ){
+//      struct lock* cur_lock = list_entry (e, struct lock, lock_elem);
+//
+//      if(lock_max_priority < cur_lock->max_priority){
+//          lock_max_priority = cur_lock->max_priority;
+//      }
+//  }
+//
+//  cur->priority = (lock_max_priority > cur->orig_priority) ? lock_max_priority : cur->orig_priority;
+
+  // original code
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -349,4 +413,18 @@ bool semaphore_priority_greater(struct list_elem* a, struct list_elem *b){
     struct semaphore_elem* sema_b = list_entry(b, struct semaphore_elem, elem);
 
     return sema_a->priority > sema_b->priority;
+}
+
+bool semaphore_priority_less(struct list_elem* a, struct list_elem *b){
+    struct semaphore_elem* sema_a = list_entry(a, struct semaphore_elem, elem);
+    struct semaphore_elem* sema_b = list_entry(b, struct semaphore_elem, elem);
+
+    return sema_a->priority < sema_b->priority;
+}
+
+bool lock_priority_func(struct list_elem* a, struct list_elem* b, void *aux){
+    struct lock* a_lock = list_entry(a, struct lock, lock_elem);
+    struct lock* b_lock = list_entry(b, struct lock, lock_elem);
+
+    return a_lock->max_priority < b_lock->max_priority;
 }

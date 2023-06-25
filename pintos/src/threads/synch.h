@@ -4,6 +4,8 @@
 #include <list.h>
 #include <stdbool.h>
 
+#define INVALID_PRIORITY (0)
+
 /* A counting semaphore. */
 struct semaphore 
   {
@@ -22,6 +24,9 @@ struct lock
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
+
+    struct list_elem lock_elem; /* Element in list of locks owned by a thread*/
+    uint8_t max_priority;
   };
 
 void lock_init (struct lock *);
@@ -29,6 +34,8 @@ void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
+
+void set_max_priority_lock(struct lock * plock, uint8_t priority);
 
 /* Condition variable. */
 struct condition 
@@ -42,6 +49,8 @@ void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
 bool semaphore_priority_greater(struct list_elem* a, struct list_elem *b);
+bool semaphore_priority_less(struct list_elem* a, struct list_elem *b);
+bool lock_priority_func(struct list_elem* a, struct list_elem* b, void *aux);
 
 /* Optimization barrier.
 
