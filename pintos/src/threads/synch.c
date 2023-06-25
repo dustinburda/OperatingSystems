@@ -279,24 +279,6 @@ lock_release (struct lock *lock)
       lock->max_priority = max_thread->priority;
   }
 
-
-    //printf("%s, cur: %d, orig: %d\n", cur->name, cur->priority, cur->orig_priority);
-//  printf("AHAHAHAHAHHAHAHHAHAH, cur:%d\n orig: %d\n", cur->priority, cur->orig_priority);
-
-//   uint8_t lock_max_priority = INVALID_PRIORITY;
-//
-//  struct list_elem *e;
-//
-//  for(e = list_begin(& cur->lock_list); e != list_end(& cur->lock_list); e = list_next(e) ){
-//      struct lock* cur_lock = list_entry (e, struct lock, lock_elem);
-//
-//      if(lock_max_priority < cur_lock->max_priority){
-//          lock_max_priority = cur_lock->max_priority;
-//      }
-//  }
-//
-//  cur->priority = (lock_max_priority > cur->orig_priority) ? lock_max_priority : cur->orig_priority;
-
   // original code
   lock->holder = NULL;
   sema_up (&lock->semaphore);
