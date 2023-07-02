@@ -360,6 +360,7 @@ sub cyl_sectors {
 sub read_loader {
     my ($name) = @_;
     $name = find_file ("loader.bin") if !defined $name;
+    # $name = find_file ("/Users/dustin/Desktop/CS162/pintos/src/userprog/build/loader.bin") if !defined $name;
     die "Cannot find loader\n" if !defined $name;
 
     my ($handle);
