@@ -34,18 +34,19 @@ process_execute (const char *file_name)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  //fn_copy1 = palloc_get_page (0);
-  if (fn_copy == NULL)// || fn_copy1 == NULL)
+  char fn_copy1[256];
+  strlcpy(fn_copy1, file_name, 256);
+
+  if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-  //strlcpy (fn_copy1, file_name, PGSIZE);
 
   char* save_ptr;
-  char* program_name = strtok_r(fn_copy, " ", &save_ptr);
+  char* program_name = strtok_r(fn_copy1, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  tid = thread_create(program_name, PRI_DEFAULT, start_process, file_name);
+  tid = thread_create(program_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -119,7 +120,7 @@ start_process (void *file_name_)
     //push &argv[0] (ie argv)
     //push argc
     //push return address 0
-    hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+    // hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -171,6 +172,11 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+
+
+  for(int i = 2; i < MAX_FILES; i++){
+        file_close(cur->file_dt[i]);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

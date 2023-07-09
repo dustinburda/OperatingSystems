@@ -261,3 +261,8 @@ invalidate_pagedir (uint32_t *pd)
       pagedir_activate (pd);
     } 
 }
+
+uint32_t *
+page_lookup (uint32_t *pd, const void *vaddr) {
+    return lookup_page(pd, vaddr, false);
+}

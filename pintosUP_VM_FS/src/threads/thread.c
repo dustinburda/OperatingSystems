@@ -198,6 +198,9 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  /*Initialize file descriptor table */
+  memset(t->file_dt, 0, 64 * sizeof(struct file*));
+
   /* Add to run queue. */
   thread_unblock (t);
 
