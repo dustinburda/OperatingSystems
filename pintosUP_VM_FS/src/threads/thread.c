@@ -199,6 +199,7 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /*Initialize file descriptor table */
+  t->next_fd = 2;
   memset(t->file_dt, 0, 64 * sizeof(struct file*));
 
   /* Add to run queue. */
@@ -292,6 +293,7 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  sema_up (& thread_current ()->process_finished);
   intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
@@ -470,6 +472,12 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  list_init (& t->children);
+  t->parent = NULL;
+  t->load_success = false;
+  sema_init (& t->load_finished, 0);
+  sema_init (& t->process_finished, 0);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

@@ -17,9 +17,12 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
+extern struct lock file_sys_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -82,6 +85,9 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   //success = load (file_name, &if_.eip, &if_.esp);
   success = load(token_ptrs[0], &if_.eip, &if_.esp);
+  if(thread_current ()->parent)
+      thread_current ()->parent->load_success = success;
+  sema_up (&thread_current ()->load_finished);
     for(int i = argc - 1; i >= 0; i--){
         size_t length = strlen(token_ptrs[i]);
         if_.esp -= length + 1;
@@ -151,17 +157,31 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+//
+//    struct thread* cur = thread_current ();
+//
+//    struct list_elem* e;
+//    struct thread* child = NULL;
+//    for(e = list_begin(& cur->children); e != list_end (& cur->children); e = list_next(e)) {
+//        child = list_entry (e, struct thread, sibling_list_elem);
+//        if(child->tid == child_tid){
+//            break;
+//        }
+//    }
+//
+//    if(child != NULL){
+//        sema_down(& child->process_finished);
+//        list_remove(& child-> sibling_list_elem);
+//    }
+//
+//    return -1;
 
-  //for(;;) {
-      //timer_sleep(10000);
-  //}
-
-    /*
-    for(int i = 0; i < 3; i++){
-        printf("Spinning: %d\n", i);
-        timer_sleep(500);
-    }
-     */
+//        for (e = list_begin (&foo_list); e != list_end (&foo_list);
+//             e = list_next (e))
+//        {
+//            struct foo *f = list_entry (e, struct foo, elem);
+//            ...do something with f...
+//        }
    timer_sleep(500);
   return -1;
 }
@@ -175,7 +195,7 @@ process_exit (void)
 
 
   for(int i = 2; i < MAX_FILES; i++){
-        file_close(cur->file_dt[i]);
+        close_handler(i);
   }
 
   /* Destroy the current process's page directory and switch back
@@ -393,6 +413,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  if(success = true){
+      int file_desc_ = open_handler(file_name);
+      thread_current ()->running_fd = file_desc_;
+      struct file* running_file = thread_current ()->file_dt[file_desc_];
+      file_deny_write(running_file);
+  }
   return success;
 }
 
