@@ -1,16 +1,21 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
-//#include <stdbool.h>
+#include <stdbool.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
 #include "userprog/pagedir.h"
 #include "threads/synch.h"
-
-#include "syscall.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
 
 static void syscall_handler (struct intr_frame *);
+void halt_handler ();
+void exit_handler (int status);
+int write_handler (int fd, const void* buffer, unsigned size);
+
+static bool is_valid_addr(void* addr);
 
 struct lock file_sys_lock;
 
@@ -23,26 +28,138 @@ syscall_init (void)
 
 static bool
 is_valid_addr(void* addr){
-    if(addr == NULL)
-        return false;
-
-//    if(!is_user_vaddr (addr))
-//        return false;
-
     uint32_t* page_ptr = page_lookup (thread_current ()->pagedir, addr);
+
+//    if(!page_ptr){
+//        printf("NOT VALID!: 0x%x\n", addr);
+//    }
     return page_ptr != NULL;
 }
+//
+//static void
+//syscall_handler2 (struct intr_frame *f UNUSED)
+//{
+//    printf("System Call!\n");
+//    struct thread *t = thread_current ();
+//    if(t){
+//        printf("%s: exit(%d)\n", t->name, t->exit_status);
+//    } else {
+//        printf("T is bad!\n");
+//    }
+//
+//    thread_exit ();
+//    //thread_exit();
+//    return;
+//    int *esp = (int*)f->esp;
+////    if (!is_valid_addr(p))
+////        exit_handler(-1);
+////  hex_dump(f->esp, f->esp, 50, true);
+//    int number = *esp;
+//    //printf("number: %d\n", number);
+//    esp += 1;
+//
+//    bool b_handled = false;
+//
+//    switch(number){
+//        case SYS_HALT:                   /* Halt the operating system. */
+//            halt_handler();
+//            break;
+//        case SYS_EXIT:
+//        {
+//
+////            printf("SYS_EXIT\n");
+////            //hex_dump(f->esp, f->esp, 80, true);
+////            if(!is_user_vaddr (esp)){
+////                //b_handled = true;
+////                // printf("Invalid virtual address: 0x%x\n", esp);
+//////              exit_handler(-1);
+////            }
+////            {
+////                //this is what makes it not spin
+////                int* status_ptr = esp;
+////                exit_handler(*status_ptr);
+////            }
+////            b_handled = true;
+//        }
+//            break;
+////        case SYS_EXEC:                   /* Start another process. */
+////            break;
+////        case SYS_WAIT:                   /* Wait for a child process to die. */
+////            break;
+////        case SYS_CREATE:                 /* Create a file. */
+////            break;
+////        case SYS_REMOVE:                 /* Delete a file. */
+////            break;
+////        case SYS_OPEN:                   /* Open a file. */
+////            break;
+////        case SYS_FILESIZE:               /* Obtain a file's size. */
+////            break;
+////        case SYS_READ:                   /* Read from a file. */
+////            break;
+//        case SYS_WRITE: /* Write to a file. */
+//        {
+//            printf("SYS_WRITE\n");
+//            //hex_dump(f->esp, f->esp, 50, true);
+//            int fd = *esp;
+//            esp += 1;
+////            if (!is_valid_addr(esp))
+////                exit_handler(-1);
+//            char *buffer = *esp;
+//            esp += 1;
+//            unsigned size = *esp;
+//            esp += 1;
+//            //printf("fd: %d, buffer: %s, buffer address: 0x%x,  size: %d\n", fd, buffer, buffer, size);
+//            f->eax = write_handler(fd, buffer, size);
+//            b_handled = true;
+//        }
+//            break;
+////        case SYS_SEEK:                   /* Change position in a file. */
+////            break;
+////        case SYS_TELL:                   /* Report current position in a file. */
+////            break;
+////        case SYS_CLOSE:                  /* Close a file. */
+////            break;
+//        default:
+//            printf ("unknown syscall: %d\n", number);
+//            b_handled = true;
+//            break;
+//    }
+//
+//    if(!b_handled)
+//        thread_exit();
+//
+////------------------------------------------------------------------
+//
+//
+//
+////  printf ("system call!\n");
+////    int* esp = (int*)f->esp;
+//    //hex_dump(f->esp, f->esp, 50 , true);
+////    printf("0x%x\n", *(esp ));
+////    printf("0x%x\n", *(esp + 1));
+////
+////  if(!is_user_vaddr (*(esp+1))){
+////      printf("Invalid virtual addrss\n");
+////  }
+////  if(!is_valid_addr(*(esp+1)))
+////    exit_handler(-1);
+////    thread_exit();
+//
+////to get the sc-bad-sp tp print
+//    //thread_exit();
+////    exit_handler(-1);
+//}
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f UNUSED)
 {
-  int *p = (int*)f->esp;
-  if(!is_valid_addr(p)){
-      exit_handler(-1);
-  }
-  int number = *p;
+  int *esp = (int*)f->esp;
+    if (!is_valid_addr(esp))
+        exit_handler(-1);
+//  hex_dump(f->esp, f->esp, 50, true);
+  int number = *esp;
   //printf("number: %d\n", number);
-  p += 1;
+  esp += 1;
 
   bool b_handled = false;
 
@@ -52,159 +169,68 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
       case SYS_EXIT:
       {
-          int status_ptr = *p;
-          p += 1;
-          exit_handler(status_ptr);
+          //printf("SYS_EXIT\n");
+          //hex_dump(f->esp, f->esp, 80, true);
+          if(!is_user_vaddr (esp)){
+              //b_handled = true;
+              // printf("Invalid virtual address: 0x%x\n", esp);
+//              exit_handler(-1);
+          }
+          {
+              //this is what makes it not spin
+              int* status_ptr = esp;
+              exit_handler(*status_ptr);
+          }
           b_handled = true;
       }
             break;
       case SYS_EXEC:                   /* Start another process. */
-      {
-          if(!is_valid_addr(p))
-              exit_handler(-1);
-          char* filename = *p;
-          p += 1;
-          tid_t process_id = process_execute (filename);
-          sema_down (&thread_current ()->load_finished);
-          if(process_id == TID_ERROR || thread_current ()->load_success == false){
-              f->eax = -1;
-          } else {
-              f->eax = process_id;
-          }
-          b_handled = true;
-      }
           break;
       case SYS_WAIT:                   /* Wait for a child process to die. */
-      {
-          tid_t pid = *p;
-          p += 1;
-          int child_id = process_wait(pid);
-          f->eax = child_id;
-          b_handled = true;
-      }
           break;
       case SYS_CREATE:                 /* Create a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          if(!is_valid_addr(p))
-              exit_handler(-1);
-          char* file_name = *p;
-          p += 1;
-          unsigned size = *p;
-          p += 1;
-          f->eax = create_handler(file_name, size);
-          b_handled = true;
-      }
           break;
       case SYS_REMOVE:                 /* Delete a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          if(!is_valid_addr(p))
-              exit_handler(-1);
-          char* file_name = *p;
-          p += 1;
-          f->eax = remove_handler(file_name);
-          b_handled = true;
-      }
           break;
       case SYS_OPEN:                   /* Open a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          if(!is_valid_addr(p))
-              exit_handler(-1);
-          char* file_name = *p;
-          p += 1;
-          int fd = open_handler(file_name);
-          if(fd == -1)
-              exit_handler(-1);
-          f->eax = fd;
-          b_handled = true;
-      }
           break;
       case SYS_FILESIZE:               /* Obtain a file's size. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          int fd = *p;
-          p += 1;
-          int size = filesize_handler(fd);
-          if(size == -1)
-              exit_handler(-1);
-          f->eax = size;
-          b_handled = true;
-      }
           break;
       case SYS_READ:                   /* Read from a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          int fd = *p;
-          p += 1;
-          // check if buffer ptr is valid
-          if(!is_valid_addr(p))
-              exit_handler(-1);
-          void* buffer = *p;
-          p += 1;
-          unsigned size = *p;
-          p +=1;
-          f->eax = read_handler (fd, buffer, size);
-          b_handled = true;
-      }
           break;
       case SYS_WRITE: /* Write to a file. */
       {
+//          printf("In sys write....");
+
           //hex_dump(f->esp, f->esp, 50, true);
-          int fd = *p;
-          p += 1;
-          if (!is_valid_addr(p))
+          int fd = *esp;
+          esp += 1;
+          if (!is_valid_addr(esp))
               exit_handler(-1);
-          char *buffer = *p;
-          p += 1;
-          unsigned size = *p;
-          p += 1;
+          char *buffer = *esp;
+          esp += 1;
+          unsigned size = *esp;
+          esp += 1;
           //printf("fd: %d, buffer: %s, buffer address: 0x%x,  size: %d\n", fd, buffer, buffer, size);
           f->eax = write_handler(fd, buffer, size);
           b_handled = true;
       }
           break;
       case SYS_SEEK:                   /* Change position in a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          int fd = *p;
-          p += 1;
-          unsigned position = *p;
-          p += 1;
-          seek_handler(fd, position);
-          b_handled = true;
-      }
           break;
       case SYS_TELL:                   /* Report current position in a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          int fd = * p;
-          p += 1;
-          unsigned next_byte = tell_handler(fd);
-          if(next_byte == -1)
-              exit_handler(-1);
-          f->eax = next_byte;
-          b_handled = true;
-      }
           break;
       case SYS_CLOSE:                  /* Close a file. */
-      {
-          //hex_dump(f->esp, f->esp, 50, true);
-          int fd = * p;
-          p += 1;
-          close_handler(fd);
-          b_handled = true;
-      }
           break;
       default:
           printf ("unknown syscall: %d\n", number);
           break;
     }
 
-  //printf ("system call!\n");
-  if(!b_handled)
-      thread_exit();
+    if(!b_handled)
+        thread_exit();
+
+//------------------------------------------------------------------
 }
 
 void
@@ -215,8 +241,8 @@ halt_handler() {
 void
 exit_handler(int status) {
     struct thread *t = thread_current ();
-    t->status = status;
-    printf ("%s: exit(%d)\n", t->name, t->status);
+    t->exit_status = status;
+    printf("%s: exit(%d)\n", t->name, t->exit_status);
     thread_exit ();
 }
 
@@ -236,128 +262,6 @@ write_handler (int fd, const void* buffer, unsigned size) {
     return bytes_written;
 }
 
-bool create_handler(char* file_name, unsigned size) {
-    bool created = false;
-    lock_acquire (&file_sys_lock);
-    created = filesys_create (file_name, size);
-    lock_release (&file_sys_lock);
-    return created;
-}
 
-bool remove_handler(char* file_name){
-    bool closed = false;
-    lock_acquire (&file_sys_lock);
-    closed = filesys_remove (file_name);
-    lock_release (&file_sys_lock);
-    return closed;
-}
-
-int open_handler (char* file_name) {
-    int fd = -1;
-
-    if(thread_current ()->next_fd == MAX_FILES)
-        return fd;
-
-    lock_acquire (&file_sys_lock);
-    struct file* open_file = filesys_open (file_name);
-    if(open_file != NULL){
-        fd = thread_current() ->next_fd;
-        thread_current() ->next_fd++;
-        thread_current()->file_dt[fd] = open_file;
-    }
-    lock_release (&file_sys_lock);
-
-    return fd;
-}
-
-int filesize_handler(int fd){
-    int size = -1;
-
-    if(fd < 0 || fd > MAX_FILES)
-        return size;
-
-    struct file* file_ = thread_current() ->file_dt[fd];
-    if(file_ == NULL)
-        return size;
-
-    lock_acquire (& file_sys_lock);
-    size = file_length (file_);
-    lock_release (& file_sys_lock);
-
-    return size;
-}
-
-int read_handler (int fd, void* buffer, unsigned size){
-    int r_size = -1;
-
-    if(fd < 0 || fd >= MAX_FILES || fd == 1)
-        return r_size;
-
-
-    if(fd == 0){
-        r_size = 0;
-        char* buffer_ = (char*)buffer;
-        for(int i =0; i < size; i++){
-            uint8_t character = input_getc();
-            if(character == 13){
-                break;
-            }
-            *buffer_ = character;
-            buffer_++;
-            r_size++;
-        }
-        *buffer_ = 0;
-        return r_size;
-    }
-
-    lock_acquire (& file_sys_lock);
-    struct file* file_ = thread_current() ->file_dt[fd];
-    if(file_ != NULL){
-        r_size = file_read (file_, buffer, size);
-    }
-    lock_release (& file_sys_lock);
-    return r_size;
-}
-
-void seek_handler (int fd, unsigned position){
-    if(fd < 0 || fd >= MAX_FILES || fd == 1 || fd == 0)
-        return;
-
-    struct file* file_ = thread_current() ->file_dt[fd];
-    if(file_ == NULL)
-        return;
-
-    lock_acquire (&file_sys_lock);
-    file_seek(file_, position);
-    lock_release (&file_sys_lock);
-}
-
-unsigned tell_handler(int fd){
-    if(fd < 0 || fd >= MAX_FILES || fd == 1 || fd == 0)
-        return -1;
-
-    struct file* file_ = thread_current() ->file_dt[fd];
-    if(file_ == NULL)
-        return -1;
-
-    unsigned next_byte;
-    lock_acquire (&file_sys_lock);
-    next_byte = file_tell (file_);
-    lock_release (&file_sys_lock);
-    return next_byte;
-}
-
-void close_handler (int fd){
-    if(fd < 0 || fd >= MAX_FILES || fd == 1 || fd == 0)
-        return;
-
-    struct file* file_ = thread_current() ->file_dt[fd];
-    if(file_ == NULL)
-        return;
-
-    lock_acquire (&file_sys_lock);
-    file_close (file_);
-    lock_release (&file_sys_lock);
-}
 
 
