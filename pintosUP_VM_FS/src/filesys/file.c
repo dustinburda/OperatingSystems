@@ -166,3 +166,11 @@ file_tell (struct file *file)
   ASSERT (file != NULL);
   return file->pos;
 }
+
+void print_counts(struct file* file_){
+    if(!file_)
+        printf("File does not exist\n");
+    int deny_cnt = file_->inode->deny_write_cnt;
+    int open_cnt = file_->inode->open_cnt;
+    printf("deny_write_cnt: %d, inode_open_cnt: %d\n", deny_cnt, open_cnt);
+}

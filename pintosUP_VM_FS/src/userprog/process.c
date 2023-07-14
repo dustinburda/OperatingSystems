@@ -162,7 +162,7 @@ process_wait (tid_t child_tid UNUSED)
         timer_sleep(500);
     }
      */
-   timer_sleep(500);
+   timer_sleep(10);
   return -1;
 }
 

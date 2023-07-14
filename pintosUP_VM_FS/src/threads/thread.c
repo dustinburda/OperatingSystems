@@ -472,6 +472,7 @@ init_thread (struct thread *t, const char *name, int priority)
   intr_set_level (old_level);
 
   t->exit_status = 0;
+  t->next_fd = 2;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

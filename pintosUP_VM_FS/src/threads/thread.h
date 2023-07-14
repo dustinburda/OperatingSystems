@@ -99,6 +99,7 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct file* file_dt[64];
+    int next_fd;
     int exit_status;
 #endif
 

@@ -26,4 +26,6 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
+void print_counts(struct file* file_);
+
 #endif /* filesys/file.h */
