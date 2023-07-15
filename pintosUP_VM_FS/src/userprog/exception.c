@@ -151,7 +151,7 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
 //  printf("IN AN EXCEPTION\n");
-//  exit_handler(-1);
+  exit_handler(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

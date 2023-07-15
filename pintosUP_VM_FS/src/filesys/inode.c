@@ -332,6 +332,7 @@ inode_deny_write (struct inode *inode)
 void
 inode_allow_write (struct inode *inode) 
 {
+//print_inode_counts(inode);
   ASSERT (inode->deny_write_cnt > 0);
   ASSERT (inode->deny_write_cnt <= inode->open_cnt);
   inode->deny_write_cnt--;
@@ -342,4 +343,8 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+void print_inode_counts(const struct inode* inode_) {
+    printf("Open Count: %d, Deny Count: %d\n", inode_->open_cnt, inode_->deny_write_cnt);
 }

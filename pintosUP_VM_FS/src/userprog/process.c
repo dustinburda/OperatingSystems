@@ -174,8 +174,9 @@ process_exit (void)
   uint32_t *pd;
 
 
-  for(int i = 2; i < MAX_FILES; i++){
-        file_close(cur->file_dt[i]);
+  for(int i = 2; i < MAX_FILES; i++) {
+      if(cur->file_dt[i])
+          file_close(cur->file_dt[i]);
   }
 
   /* Destroy the current process's page directory and switch back

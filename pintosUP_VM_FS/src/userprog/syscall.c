@@ -18,6 +18,11 @@ int write_handler (int fd, const void* buffer, unsigned size);
 bool create_handler(const char* filename, unsigned size);
 int open_handler(const char* filename);
 void close_handler(int fd);
+int read_handler(int fd, char* buffer, unsigned size);
+int filesize_handler(int fd);
+void seek_handler(int fd, unsigned position);
+unsigned tell_handler(int fd);
+bool remove_handler(const char* filename);
 
 static bool is_valid_addr(void* addr);
 
@@ -71,6 +76,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     // hex_dump(f->esp, f->esp, 80, true);
     int number = *esp;
 //    esp += 1;
+//    printf("Number: %d\n", number);
 
     bool b_handled = false;
 
@@ -93,7 +99,9 @@ syscall_handler (struct intr_frame *f UNUSED)
           b_handled = true;
       }
             break;
-      case SYS_EXEC:                   /* Start another process. */
+      case SYS_EXEC:                   /* Start another process. */{
+//          printf("Executing... \n");
+      }
           break;
       case SYS_WAIT:                   /* Wait for a child process to die. */
           break;
@@ -123,9 +131,26 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
           break;
       case SYS_REMOVE:                 /* Delete a file. */
+      {
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          const char* filename = *esp;
+          if(!is_valid_range((void*)filename, (void*)filename + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+
+          f->eax = remove_handler(filename);
+
+          b_handled = true;
+      }
           break;
       case SYS_OPEN:                   /* Open a file. */
       {
+          //printf("Opening... \n");
           esp += 1;
           if(!is_valid_range((void*)esp, (void*)esp + 3)) {
               //printf("Not valid ptr\n");
@@ -140,13 +165,59 @@ syscall_handler (struct intr_frame *f UNUSED)
           }
 
           f->eax = open_handler(filename);
-
+            //printf("Successfully Opened... \n");
           b_handled = true;
       }
           break;
       case SYS_FILESIZE:               /* Obtain a file's size. */
+      {
+          //printf("Filesize... \n");
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              //printf("Not valid ptr\n");
+              b_handled = true;
+              exit_handler(-1);
+          }
+          int fd = *esp;
+
+          f->eax = filesize_handler(fd);
+
+          b_handled = true;
+      }
           break;
       case SYS_READ:                   /* Read from a file. */
+      {
+          //printf("Reading... \n");
+
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          int fd = *esp;
+
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          char* buffer = *esp;
+          if(!is_valid_range((void*)buffer, (void*)buffer + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          unsigned size = *esp;
+
+          f->eax = read_handler(fd, buffer, size);
+
+          b_handled = true;
+      }
           break;
       case SYS_WRITE: /* Write to a file. */
       {
@@ -182,8 +253,39 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
           break;
       case SYS_SEEK:                   /* Change position in a file. */
+      {
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          int fd = *esp;
+
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          unsigned position = *esp;
+
+          seek_handler(fd, position);
+
+          b_handled = true;
+      }
           break;
       case SYS_TELL:                   /* Report current position in a file. */
+      {
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          int fd = *esp;
+
+          f->eax = tell_handler(fd);
+
+          b_handled = true;
+      }
           break;
       case SYS_CLOSE:                  /* Close a file. */
       {
@@ -226,16 +328,22 @@ exit_handler(int status) {
 
 int
 write_handler (int fd, const void* buffer, unsigned size) {
-    if(fd == 0) return 0;
-
     int bytes_written = 0;
-    lock_acquire (&file_sys_lock);
+    if(fd <= 0 || fd > 63)
+        return bytes_written;
+
     if(fd == 1){
-        bytes_written = size;
         putbuf(buffer, size);
-    } else if (fd > 1 && fd < 64) {
-        bytes_written = (int)file_write(thread_current ()->file_dt[fd], buffer, size);
+        bytes_written = size;
+        return bytes_written;
     }
+
+    lock_acquire (&file_sys_lock);
+    struct file* file_ = thread_current ()->file_dt[fd];
+    if(file_) {
+        bytes_written = file_write(file_, buffer, size);
+    }
+
     lock_release (&file_sys_lock);
     return bytes_written;
 }
@@ -273,10 +381,88 @@ void close_handler(int fd) {
 
     lock_acquire (& file_sys_lock);
     struct file* file_ = thread_current ()->file_dt[fd];
-    print_counts(file_);
+    file_close(file_);
+    thread_current ()->file_dt[fd] = NULL;
+
+//    print_counts(file_);
 //    int deny_cnt = file_->inode->deny_write_cnt;
 //    int open_cnt = file_->inode->open_cnt;
 //    printf("deny_write_cnt: %d, inode_open_cnt: %d\n", deny_cnt, open_cnt);
     lock_release (& file_sys_lock);
 }
 
+int read_handler(int fd, char* buffer, unsigned size) {
+    unsigned bytes_read = -1;
+
+    if(fd < 0 || fd == 1 || fd > 63)
+        return bytes_read;
+
+
+
+    if(fd == 0) {
+        char* curr_char = buffer;
+        bytes_read = 0;
+        while(size > 0) {
+            *curr_char = input_getc ();
+            curr_char++;
+            if(curr_char = '\n')
+                break;
+            bytes_read++;
+        }
+        return bytes_read;
+    }
+    lock_acquire (& file_sys_lock);
+    struct file* file_ = thread_current ()->file_dt[fd];
+    if(file_)
+        bytes_read = file_read(file_, buffer, size);
+    lock_release (& file_sys_lock);
+    return bytes_read;
+}
+
+
+int filesize_handler(int fd) {
+    int filesize = 0;
+    if(fd < 2 || fd > 63)
+        return 0;
+
+    lock_acquire (& file_sys_lock);
+    struct file* file_ = thread_current ()->file_dt[fd];
+    if(file_){
+        filesize = file_length(file_);
+    }
+    lock_release (& file_sys_lock);
+    return filesize;
+}
+
+void seek_handler(int fd, unsigned position) {
+    if(fd < 2 || fd > 63)
+        return;
+
+    lock_acquire (& file_sys_lock);
+    struct file* file_ = thread_current ()->file_dt[fd];
+    if(file_){
+        file_seek(file_, position);
+    }
+    lock_release (& file_sys_lock);
+}
+
+unsigned tell_handler(int fd) {
+    unsigned pos = -1;
+
+    if(fd < 2 || fd > 63)
+        return pos;
+
+    lock_acquire (& file_sys_lock);
+    struct file* file_ = thread_current ()->file_dt[fd];
+    if(file_){
+        pos = file_tell(file_);
+    }
+    lock_release (& file_sys_lock);
+    return pos;
+}
+
+bool remove_handler(const char* filename) {
+    lock_acquire (& file_sys_lock);
+    filesys_remove(filename);
+    lock_release (& file_sys_lock);
+}
