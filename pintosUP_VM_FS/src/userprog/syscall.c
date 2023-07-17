@@ -99,11 +99,42 @@ syscall_handler (struct intr_frame *f UNUSED)
           b_handled = true;
       }
             break;
-      case SYS_EXEC:                   /* Start another process. */{
-//          printf("Executing... \n");
+      case SYS_EXEC:                   /* Start another process. */
+      {
+          //printf("ticks: %llu, Executing... \n", timer_ticks ());
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          char* filename = *esp;
+          if(!is_valid_range((void*)filename, (void*)filename + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+
+          f->eax = process_execute (filename);
+
+          b_handled = true;
       }
           break;
       case SYS_WAIT:                   /* Wait for a child process to die. */
+      {
+         // printf("ticks: %jd, Waiting...\n", timer_ticks ());
+          esp += 1;
+          if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              b_handled = true;
+              exit_handler(-1);
+          }
+          tid_t thread_id = *esp;
+
+          struct thread* cur = thread_current ();
+          //printf("sys_wait handler start, %d waiting for %d\n", cur->status, cur->tid, thread_id);
+          f->eax = process_wait(thread_id);
+          //printf("sys_wait handler end\n");
+          //printf("current status: %d, current id: %d\n", cur->status, cur->tid);
+          b_handled = true;
+      }
           break;
       case SYS_CREATE:                 /* Create a file. */
       {

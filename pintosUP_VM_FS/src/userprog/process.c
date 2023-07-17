@@ -151,7 +151,12 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+    struct thread* cur = thread_current ();
 
+    struct thread* child = get_thread_by_id(child_tid);
+    ASSERT (child);
+
+    //printf("ticks: %jd, process_wait_start: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
   //for(;;) {
       //timer_sleep(10000);
   //}
@@ -162,8 +167,15 @@ process_wait (tid_t child_tid UNUSED)
         timer_sleep(500);
     }
      */
-   timer_sleep(10);
-  return -1;
+
+    if(cur->tid == 1) {
+        timer_sleep(100);
+    } else {
+        timer_sleep(10);
+    }
+
+    //printf("ticks: %jd, process_wait_end: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
+  return child_tid;
 }
 
 /* Free the current process's resources. */
