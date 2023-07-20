@@ -48,7 +48,13 @@ process_execute (const char *file_name)
   // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   tid = thread_create(program_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+    /*
+    struct thread* child = get_thread_by_id(tid);
+    if(child){
+        sema_down(& child->load_sema);
+    }
+     */
   return tid;
 }
 
@@ -82,6 +88,12 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   //success = load (file_name, &if_.eip, &if_.esp);
   success = load(token_ptrs[0], &if_.eip, &if_.esp);
+  /*
+
+
+
+
+   */
     for(int i = argc - 1; i >= 0; i--){
         size_t length = strlen(token_ptrs[i]);
         if_.esp -= length + 1;
@@ -153,20 +165,18 @@ process_wait (tid_t child_tid UNUSED)
 {
     struct thread* cur = thread_current ();
 
+
+    /*
+
+
+
+
+   */
+
     struct thread* child = get_thread_by_id(child_tid);
     ASSERT (child);
 
     //printf("ticks: %jd, process_wait_start: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
-  //for(;;) {
-      //timer_sleep(10000);
-  //}
-
-    /*
-    for(int i = 0; i < 3; i++){
-        printf("Spinning: %d\n", i);
-        timer_sleep(500);
-    }
-     */
 
     if(cur->tid == 1) {
         timer_sleep(100);
@@ -190,6 +200,24 @@ process_exit (void)
       if(cur->file_dt[i])
           file_close(cur->file_dt[i]);
   }
+
+  struct thread_RIP* ptRIP = NULL;
+  struct list_elem *e = NULL;
+
+  for(e = list_begin (& cur->children_RIP); e != (& cur->children_RIP); e = list_next (& cur->children_RIP)) {
+      struct thread_RIP = list_entry(e, struct thread_RIP, child_elem);
+      if(thread_RIP->self) {
+          lock_acquire(& thread_RIP->self->parent_lock)
+          thread_RIP->self->parent = NULL;
+      }
+  }
+
+    /*
+
+
+
+
+     */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
