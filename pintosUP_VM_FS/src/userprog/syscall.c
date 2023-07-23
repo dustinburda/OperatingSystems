@@ -76,7 +76,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     // hex_dump(f->esp, f->esp, 80, true);
     int number = *esp;
 //    esp += 1;
-//    printf("Number: %d\n", number);
+   // printf("Thread: %s, id: %d, Number: %d\n", thread_current()->name, thread_current ()->tid, number);
 
     bool b_handled = false;
 
@@ -112,7 +112,7 @@ syscall_handler (struct intr_frame *f UNUSED)
               b_handled = true;
               exit_handler(-1);
           }
-
+          // printf(" ======== Executing in thread: %d, filename: %s\n", thread_current() ->tid, filename);
           f->eax = process_execute (filename);
 
           b_handled = true;
@@ -353,7 +353,7 @@ void
 exit_handler(int status) {
     struct thread *t = thread_current ();
     t->exit_status = status;
-    report_status (CS_KILLED);
+    report_status (CS_KILLED, false);
     printf("%s: exit(%d)\n", t->name, t->exit_status);
     thread_exit ();
 }
