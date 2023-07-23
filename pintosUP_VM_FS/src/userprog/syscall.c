@@ -353,6 +353,7 @@ void
 exit_handler(int status) {
     struct thread *t = thread_current ();
     t->exit_status = status;
+    report_status (CS_KILLED);
     printf("%s: exit(%d)\n", t->name, t->exit_status);
     thread_exit ();
 }

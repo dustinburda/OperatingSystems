@@ -101,24 +101,26 @@ start_process (void *file_name_)
   //success = load (file_name, &if_.eip, &if_.esp);
     success = load(token_ptrs[0], &if_.eip, &if_.esp);
 
-    struct thread* cur = thread_current ();
-    lock_acquire(& cur->parent_lock);
-    struct thread* parent = thread_current ()->parent;
-    if(parent) {
-        struct list_elem* e;
-        struct c_record* record;
-
-        lock_acquire ( &parent->list_lock);
-        struct list* child_records = & (parent->child_records);
-        for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
-            record = list_entry (e, struct c_record, child_elem);
-            if(record->thread_id == cur->tid)
-                break;
-        }
-        record->status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
-        lock_release ( &parent->list_lock);
-    }
-    lock_release(&thread_current()->parent_lock);
+//    struct thread* cur = thread_current ();
+//    lock_acquire(& cur->parent_lock);
+//    struct thread* parent = thread_current ()->parent;
+//    if(parent) {
+//        struct list_elem* e;
+//        struct c_record* record;
+//
+//        lock_acquire ( &parent->list_lock);
+//        struct list* child_records = & (parent->child_records);
+//        for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
+//            record = list_entry (e, struct c_record, child_elem);
+//            if(record->thread_id == cur->tid)
+//                break;
+//        }
+//        record->status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
+//        lock_release ( &parent->list_lock);
+//    }
+//    lock_release(&thread_current()->parent_lock);
+    enum child_status status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
+    report_status (status);
 
 
 
@@ -191,21 +193,56 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+//    struct thread* cur = thread_current ();
+//
+//
+//    struct thread* child = get_thread_by_id(child_tid);
+//    ASSERT (child);
+//
+//    //printf("ticks: %jd, process_wait_start: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
+//
+//    if(cur->tid == 1) {
+//        timer_sleep(100);
+//    } else {
+//        timer_sleep(10);
+//    }
+
+    // go through child_records
+    // if child not found in child_records --> return -1
+    // sema_down done_sema in c_record
+    // remove child record from c_records
+
+    tid_t child_id = child_tid;
+
     struct thread* cur = thread_current ();
+    struct list_elem* e = NULL;
+    struct c_record* record = NULL;
 
+    lock_acquire ( &cur->list_lock);
+    struct list* child_records = & (cur->child_records);
+    for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
+        record = list_entry (e, struct c_record, child_elem);
+        if(record->thread_id == child_tid)
+            break;
+        record = NULL;
+    }
+    lock_release (& cur->list_lock);
 
-    struct thread* child = get_thread_by_id(child_tid);
-    ASSERT (child);
-
-    //printf("ticks: %jd, process_wait_start: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
-
-    if(cur->tid == 1) {
-        timer_sleep(100);
+    if(record == NULL || record->status == CS_KILLED || record->status == CS_LOAD_FAIL){
+        child_tid = -1;
+        // if child not in list or killed by kernel
     } else {
-        timer_sleep(10);
+        ASSERT(record->thread_id == child_tid);
+        sema_down(& record->done_sema);
     }
 
-    //printf("ticks: %jd, process_wait_end: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
+    if(record) {
+        //remove from list
+        lock_acquire ( &cur->list_lock);
+        list_remove(e);
+        lock_release (& cur->list_lock);
+    }
+
   return child_tid;
 }
 
@@ -222,7 +259,14 @@ process_exit (void)
           file_close(cur->file_dt[i]);
   }
 
-    
+    // Inform children that parent is dying
+    // (deallocate children pages, set their parent pointers to null)
+    //
+    // Inform parent (sema_up done_sema in c_record)
+
+
+
+
 
 
   /* Destroy the current process's page directory and switch back
@@ -589,4 +633,26 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+void
+report_status (enum child_status status) {
+    struct thread* cur = thread_current ();
+    lock_acquire(& cur->parent_lock);
+    struct thread* parent = thread_current ()->parent;
+    if(parent) {
+        struct list_elem* e;
+        struct c_record* record;
+
+        lock_acquire ( &parent->list_lock);
+        struct list* child_records = & (parent->child_records);
+        for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
+            record = list_entry (e, struct c_record, child_elem);
+            if(record->thread_id == cur->tid)
+                break;
+        }
+        record->status = status;
+        lock_release ( &parent->list_lock);
+    }
+    lock_release(&thread_current()->parent_lock);
 }

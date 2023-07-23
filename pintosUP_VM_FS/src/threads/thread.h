@@ -130,6 +130,7 @@ struct thread
         CS_LOAD_SUCCESS,
         CS_LOAD_FAIL,
         CS_EXECUTING,
+        CS_KILLED,
         CS_DONE
     };
 #endif // USERPROG
