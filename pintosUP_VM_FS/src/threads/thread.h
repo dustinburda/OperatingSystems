@@ -116,15 +116,6 @@ struct thread
   };
 
 #ifdef USERPROG
-    struct c_record {
-        struct list_elem child_elem;
-        int status;
-        tid_t thread_id;
-        struct thread* self; //while still alive, or otherwise NULL
-        struct lock child_lock; // in case child exits before parent
-        struct semaphore done_sema;
-    };
-
     enum child_status {
         CS_LOADING,
         CS_LOAD_SUCCESS,
@@ -133,6 +124,18 @@ struct thread
         CS_KILLED,
         CS_DONE
     };
+
+    struct c_record {
+        struct list_elem child_elem;
+        enum child_status status;        // enum: state of thread
+        int exit_status;                 // exit code from process_wait
+        tid_t thread_id;
+        struct thread* self; //while still alive, or otherwise NULL
+        struct lock child_lock; // in case child exits before parent
+        struct semaphore done_sema;
+    };
+
+
 #endif // USERPROG
 
 /* If false (default), use round-robin scheduler.

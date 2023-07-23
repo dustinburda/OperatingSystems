@@ -59,6 +59,7 @@ process_execute (const char *file_name)
       sema_init ( & child_record->done_sema, 0);
       lock_init ( & child_record->child_lock);
       child_record->status = CS_LOADING;
+      child_record->exit_status = child_record->self->exit_status;
 
       list_push_back(& thread_current ()->child_records, child_record);
   }
@@ -74,6 +75,7 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
 
+    //printf("====== Parent thread id: %d, tid: %d,  child record id: %d\n", thread_current()->tid, tid, child_record->thread_id);
   return tid;
 }
 
@@ -222,7 +224,7 @@ process_wait (tid_t child_tid UNUSED)
     // sema_down done_sema in c_record
     // remove child record from c_records
 
-    tid_t child_id = child_tid;
+    int exit_status = 0;
 
     struct thread* cur = thread_current ();
     struct list_elem* e = NULL;
@@ -239,7 +241,7 @@ process_wait (tid_t child_tid UNUSED)
     lock_release (& cur->list_lock);
 
     if(record == NULL || record->status == CS_KILLED || record->status == CS_LOAD_FAIL){
-        child_tid = -1;
+        exit_status = -1;
         // if child not in list or killed by kernel
     } else {
         ASSERT(record->thread_id == child_tid);
@@ -252,11 +254,13 @@ process_wait (tid_t child_tid UNUSED)
         list_remove(e);
         // deallocate child page
         struct c_record* child_record = list_entry (e, struct c_record, child_elem);
+        exit_status = child_record->exit_status;
         palloc_free_page(child_record);
         lock_release (& cur->list_lock);
     }
 
-  return child_tid;
+//    printf("======= Exit status: %d\n", exit_status);
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -660,6 +664,7 @@ install_page (void *upage, void *kpage, bool writable)
 
 void
 report_status (enum child_status status, bool b_exit) {
+    //printf("===== report_status ===== current_thread_id: %d,  Exit status: %d\n", thread_current ()->tid, exit_status);
     struct thread* cur = thread_current ();
     lock_acquire(& cur->parent_lock);
     struct thread* parent = thread_current ()->parent;
@@ -677,6 +682,7 @@ report_status (enum child_status status, bool b_exit) {
         //Update status only if its not in a terminal state
         if( record->status != CS_LOAD_FAIL &&  record->status != CS_KILLED &&  record->status != CS_DONE)
             record->status = status;
+        record->exit_status = thread_current()->exit_status;
         if(b_exit)
             sema_up (& record->done_sema);
         lock_release ( &parent->list_lock);
