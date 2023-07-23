@@ -44,17 +44,29 @@ process_execute (const char *file_name)
   char* save_ptr;
   char* program_name = strtok_r(fn_copy1, " ", &save_ptr);
 
+    //make child wait until its child record is initialized
+    lock_acquire( & thread_current ()->list_lock);
+
   /* Create a new thread to execute FILE_NAME. */
   // tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   tid = thread_create(program_name, PRI_DEFAULT, start_process, fn_copy);
+
+  if(tid != TID_ERROR){
+      struct c_record* child_record = palloc_get_page(PAL_ZERO);
+      child_record->thread_id = tid;
+      child_record->self = get_thread_by_id(tid);
+      sema_init ( & child_record->done_sema, 0);
+      lock_init ( & child_record->child_lock);
+      child_record->status = CS_LOADING;
+
+      list_push_back(& thread_current ()->child_records, child_record);
+  }
+
+  lock_release( & thread_current ()->list_lock);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
-    /*
-    struct thread* child = get_thread_by_id(tid);
-    if(child){
-        sema_down(& child->load_sema);
-    }
-     */
+
   return tid;
 }
 
@@ -87,13 +99,29 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   //success = load (file_name, &if_.eip, &if_.esp);
-  success = load(token_ptrs[0], &if_.eip, &if_.esp);
-  /*
+    success = load(token_ptrs[0], &if_.eip, &if_.esp);
+
+    struct thread* cur = thread_current ();
+    lock_acquire(& cur->parent_lock);
+    struct thread* parent = thread_current ()->parent;
+    if(parent) {
+        struct list_elem* e;
+        struct c_record* record;
+
+        lock_acquire ( &parent->list_lock);
+        struct list* child_records = & (parent->child_records);
+        for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
+            record = list_entry (e, struct c_record, child_elem);
+            if(record->thread_id == cur->tid)
+                break;
+        }
+        record->status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
+        lock_release ( &parent->list_lock);
+    }
+    lock_release(&thread_current()->parent_lock);
 
 
 
-
-   */
     for(int i = argc - 1; i >= 0; i--){
         size_t length = strlen(token_ptrs[i]);
         if_.esp -= length + 1;
@@ -166,13 +194,6 @@ process_wait (tid_t child_tid UNUSED)
     struct thread* cur = thread_current ();
 
 
-    /*
-
-
-
-
-   */
-
     struct thread* child = get_thread_by_id(child_tid);
     ASSERT (child);
 
@@ -201,23 +222,8 @@ process_exit (void)
           file_close(cur->file_dt[i]);
   }
 
-  struct thread_RIP* ptRIP = NULL;
-  struct list_elem *e = NULL;
+    
 
-  for(e = list_begin (& cur->children_RIP); e != (& cur->children_RIP); e = list_next (& cur->children_RIP)) {
-      struct thread_RIP = list_entry(e, struct thread_RIP, child_elem);
-      if(thread_RIP->self) {
-          lock_acquire(& thread_RIP->self->parent_lock)
-          thread_RIP->self->parent = NULL;
-      }
-  }
-
-    /*
-
-
-
-
-     */
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

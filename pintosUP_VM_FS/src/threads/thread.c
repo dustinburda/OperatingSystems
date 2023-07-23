@@ -200,8 +200,10 @@ thread_create (const char *name, int priority,
 
   /*Initialize file descriptor table */
   memset(t->file_dt, 0, 64 * sizeof(struct file*));
-  if(strcmp(name, "main"))
+
+  if(strcmp(name, "main")){
       t->parent = thread_current(); //this executes on parent thread context
+  }
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -475,6 +477,9 @@ init_thread (struct thread *t, const char *name, int priority)
 
   t->exit_status = 0;
   t->next_fd = 2;
+    lock_init (& t->parent_lock);
+    lock_init (& t->list_lock);
+    list_init (& t->child_records);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

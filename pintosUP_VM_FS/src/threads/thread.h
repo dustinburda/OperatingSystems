@@ -103,25 +103,36 @@ struct thread
     int next_fd;
     int exit_status;
 
+    //REMEMBER TO INIT THESE
+    struct thread* parent;
+    struct lock parent_lock; // in case parent exits before child
+    struct lock list_lock;
+    struct list child_records;
 
-    struct thread* parent; //VALID while parent still alive, otherwise NULL
-    struct lock parent_lock; //Guards parent pointer, which both child and parent access
-    struct semaphore load_sema;
-    struct list children_RIP;
-#endif
+#endif // USERPROG
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
 
-    struct thread_RIP {
+#ifdef USERPROG
+    struct c_record {
         struct list_elem child_elem;
-        int exit_status;
+        int status;
         tid_t thread_id;
         struct thread* self; //while still alive, or otherwise NULL
-        struct lock child_lock;
-        struct semaphore wait_sema;
+        struct lock child_lock; // in case child exits before parent
+        struct semaphore done_sema;
     };
+
+    enum child_status {
+        CS_LOADING,
+        CS_LOAD_SUCCESS,
+        CS_LOAD_FAIL,
+        CS_EXECUTING,
+        CS_DONE
+    };
+#endif // USERPROG
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
