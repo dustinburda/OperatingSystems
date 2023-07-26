@@ -361,7 +361,7 @@ exit_handler(int status) {
 int
 write_handler (int fd, const void* buffer, unsigned size) {
     int bytes_written = 0;
-    if(fd <= 0 || fd > 63)
+    if(fd <= 0 || fd >= MAX_FILES)
         return bytes_written;
 
     if(fd == 1){
@@ -394,9 +394,13 @@ bool create_handler(const char* filename, unsigned size) {
 int open_handler(const char* filename) {
     int fd = -1;
 
+
     lock_acquire (& file_sys_lock);
     struct file* opened_file = filesys_open(filename);
     if(opened_file) {
+        if(!strcmp(thread_current ()->name, filename)) {
+            file_deny_write(opened_file);
+        }
         int next_fd = thread_current ()->next_fd;
         thread_current ()->next_fd++;
         thread_current ()->file_dt[next_fd] = opened_file;
@@ -408,7 +412,7 @@ int open_handler(const char* filename) {
 }
 
 void close_handler(int fd) {
-    if(fd < 2 || fd > 63)
+    if(fd < 2 || fd >= MAX_FILES)
         return;
 
     lock_acquire (& file_sys_lock);
@@ -426,7 +430,7 @@ void close_handler(int fd) {
 int read_handler(int fd, char* buffer, unsigned size) {
     unsigned bytes_read = -1;
 
-    if(fd < 0 || fd == 1 || fd > 63)
+    if(fd < 0 || fd == 1 || fd >= MAX_FILES)
         return bytes_read;
 
 
@@ -454,7 +458,7 @@ int read_handler(int fd, char* buffer, unsigned size) {
 
 int filesize_handler(int fd) {
     int filesize = 0;
-    if(fd < 2 || fd > 63)
+    if(fd < 2 || fd >= MAX_FILES)
         return 0;
 
     lock_acquire (& file_sys_lock);
@@ -467,7 +471,7 @@ int filesize_handler(int fd) {
 }
 
 void seek_handler(int fd, unsigned position) {
-    if(fd < 2 || fd > 63)
+    if(fd < 2 || fd >= MAX_FILES)
         return;
 
     lock_acquire (& file_sys_lock);
@@ -481,7 +485,7 @@ void seek_handler(int fd, unsigned position) {
 unsigned tell_handler(int fd) {
     unsigned pos = -1;
 
-    if(fd < 2 || fd > 63)
+    if(fd < 2 || fd >= MAX_FILES)
         return pos;
 
     lock_acquire (& file_sys_lock);
@@ -494,7 +498,9 @@ unsigned tell_handler(int fd) {
 }
 
 bool remove_handler(const char* filename) {
+    bool removed = false;
     lock_acquire (& file_sys_lock);
-    filesys_remove(filename);
+    removed = filesys_remove(filename);
     lock_release (& file_sys_lock);
+    return removed;
 }

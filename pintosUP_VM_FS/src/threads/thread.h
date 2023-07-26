@@ -25,7 +25,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-#define MAX_FILES 64
+#define MAX_FILES 128
 
 /* A kernel thread or user process.
 
@@ -99,7 +99,7 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    struct file* file_dt[64];
+    struct file* file_dt[MAX_FILES];
     int next_fd;
     int exit_status;
 

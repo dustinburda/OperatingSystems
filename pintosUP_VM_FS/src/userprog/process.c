@@ -44,7 +44,6 @@ process_execute (const char *file_name)
   char* save_ptr;
   char* program_name = strtok_r(fn_copy1, " ", &save_ptr);
 
-
     //make child wait until its child record is initialized
   lock_acquire( & thread_current ()->list_lock);
   /* Create a new thread to execute FILE_NAME. */
@@ -54,14 +53,7 @@ process_execute (const char *file_name)
     //printf("Process Execute: Parent id:%d, Child id:%d\n", thread_current ()-> tid, tid);
   if(tid != TID_ERROR){
       child_record = palloc_get_page(PAL_ZERO);
-      child_record->thread_id = tid;
-      child_record->self = get_thread_by_id(tid);
-      sema_init ( & child_record->done_sema, 0);
-      lock_init ( & child_record->child_lock);
-      child_record->status = CS_LOADING;
-      child_record->exit_status = child_record->self->exit_status;
-
-      list_push_back(& thread_current ()->child_records, child_record);
+      child_record_init (child_record, tid);
   }
   lock_release( & thread_current ()->list_lock);
 
@@ -108,31 +100,10 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   //success = load (file_name, &if_.eip, &if_.esp);
-    success = load(token_ptrs[0], &if_.eip, &if_.esp);
-   // printf("Name file: %s, Success: %d\n", token_ptrs[0], success);
-//    struct thread* cur = thread_current ();
-//    lock_acquire(& cur->parent_lock);
-//    struct thread* parent = thread_current ()->parent;
-//    if(parent) {
-//        struct list_elem* e;
-//        struct c_record* record;
-//
-//        lock_acquire ( &parent->list_lock);
-//        struct list* child_records = & (parent->child_records);
-//        for(e = list_begin (child_records); e != list_end(child_records); e = list_next(e) ) {
-//            record = list_entry (e, struct c_record, child_elem);
-//            if(record->thread_id == cur->tid)
-//                break;
-//        }
-//        record->status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
-//        if(b_exit)
-//          sema_up(& record->done_sema);
-//        lock_release ( &parent->list_lock);
-//    }
-//    lock_release(&thread_current()->parent_lock);
-    enum child_status status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
+  success = load(token_ptrs[0], &if_.eip, &if_.esp);
+  enum child_status status = success ? CS_LOAD_SUCCESS : CS_LOAD_FAIL;
    // printf("====== Child before sema up: thread id: %d,  Child status: %d\n", thread_current()->tid, status);
-    report_status (status, true);
+  report_status (status, true);
 
 
 
@@ -166,16 +137,7 @@ start_process (void *file_name_)
     if_.esp -= sizeof(int *);
     pi = if_.esp;
     *pi = NULL;
-
-
-    //push padding
-    //push null
-    //push token_ptrs
-    //push &argv[0] (ie argv)
-    //push argc
-    //push return address 0
-    // hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
-
+    
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -205,20 +167,6 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-//    struct thread* cur = thread_current ();
-//
-//
-//    struct thread* child = get_thread_by_id(child_tid);
-//    ASSERT (child);
-//
-//    //printf("ticks: %jd, process_wait_start: %d( %s) waiting for %d( %s)\n", timer_ticks (), cur->tid, cur->name, child_tid, child->name);
-//
-//    if(cur->tid == 1) {
-//        timer_sleep(100);
-//    } else {
-//        timer_sleep(10);
-//    }
-
     // go through child_records
     // if child not found in child_records --> return -1
     // sema_down done_sema in c_record
@@ -426,7 +374,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -688,4 +635,15 @@ report_status (enum child_status status, bool b_exit) {
         lock_release ( &parent->list_lock);
     }
     lock_release(&thread_current()->parent_lock);
+}
+
+void child_record_init (struct c_record* child_record, tid_t tid) {
+    child_record->thread_id = tid;
+    child_record->self = get_thread_by_id(tid);
+    sema_init ( & child_record->done_sema, 0);
+    lock_init ( & child_record->child_lock);
+    child_record->status = CS_LOADING;
+    child_record->exit_status = child_record->self->exit_status;
+
+    list_push_back(& thread_current ()->child_records, & child_record->child_elem);
 }
