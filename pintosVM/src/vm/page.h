@@ -13,6 +13,7 @@
 #include <hash.h>
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
+#include "vm/logging.h"
 
 
 enum page_type {
@@ -32,6 +33,8 @@ struct vm_entry {
     uint64_t size; //size of data inside page
     bool in_memory;
 };
+
+void print_vm_entry (struct vm_entry* vme);
 
 struct vm_entry* vm_entry_init (uint32_t VPN, bool write, enum page_type p_type, struct file* file_ptr,
                       uint64_t offset, uint64_t size, bool in_memory);

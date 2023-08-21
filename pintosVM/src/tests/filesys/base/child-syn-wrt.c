@@ -24,6 +24,14 @@ main (int argc, char *argv[])
   random_init (0);
   random_bytes (buf, sizeof buf);
 
+    fd = -1;
+    const int max_attempts = 10000;
+    int attempt_count = 0;
+    while(fd == -1 && attempt_count < max_attempts) {
+        fd = open(file_name);
+        attempt_count++;
+    }
+
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
   seek (fd, CHUNK_SIZE * child_idx);
   CHECK (write (fd, buf + CHUNK_SIZE * child_idx, CHUNK_SIZE) > 0,

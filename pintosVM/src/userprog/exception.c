@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 void exit_handler(int status);
 
@@ -151,6 +152,23 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
 #ifdef VM
+
+// Original Code
+
+
+//  exit_handler(-1);
+//
+//    /* To implement virtual memory, delete the rest of the function
+//       body, and replace it with code that brings in the page to
+//       which fault_addr refers. */
+//    printf ("Page fault at %p: %s error %s page in %s context.\n",
+//            fault_addr,
+//            not_present ? "not present" : "rights violation",
+//            write ? "writing" : "reading",
+//            user ? "user" : "kernel");
+//    kill (f);
+// Original Code
+
 //  exit_handler(-1);
 //
 //  /* To implement virtual memory, delete the rest of the function
@@ -167,8 +185,11 @@ page_fault (struct intr_frame *f)
     // such as if its a kernel or user address, etc
     // and fail if address invalid
     bool valid = true;
+    my_print2(EXCEPTION_LOGGING, "f_addr: 0x%x\n", fault_addr);
     void* f_addr = pg_round_down(fault_addr);
+    my_print2(EXCEPTION_LOGGING, "Round down f_addr: 0x%x\n", f_addr);
     if(!valid) {
+        //printf("No valid adress");
         page_fault_fail(f);
         NOT_REACHED();
     }
@@ -178,6 +199,7 @@ page_fault (struct intr_frame *f)
 
     struct hash_elem* h_elem_ptr = hash_find(& thread_current ()->vm, & temp);
     if(! h_elem_ptr) {
+        //printf("Table entry not found\n");
         page_fault_fail(f);
         NOT_REACHED();
     }
@@ -207,16 +229,21 @@ page_fault (struct intr_frame *f)
 #endif  // VM
 }
 
+
+
+
 #ifdef VM
 bool handle_mm_fault(struct vm_entry* vme) {
     uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL){
+         // printf("Failed to allocate page\n");
           palloc_free_page (kpage);
           return false;
       }
 
 
     if(vme->p_type != PT_ELF) {
+        //printf("Not binary\n");
          palloc_free_page (kpage);
          return false;
     }
@@ -238,13 +265,15 @@ bool load_file (uint8_t* kpage, struct vm_entry* vme) {
 
       if (file_read_at (file, kpage, page_read_bytes, offset) != (int) page_read_bytes)
         {
+          //printf("Failed to read whole page\n");
           return false;
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
+      my_print3(EXCEPTION_LOGGING, "Installing page- begin: 0x%x, end: 0x%x \n", vme->VPN, vme->VPN + PGSIZE);
 //      /* Add the page to the process's address space. */
       if (!install_page_wrapper (vme->VPN, kpage, vme->write))
         {
+          //printf("Failed to install page\n");
           return false;
         }
 

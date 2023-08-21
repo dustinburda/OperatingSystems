@@ -14,7 +14,7 @@ main (int argc, char *argv[])
 
   msg ("begin");
   msg ("argc = %d", argc);
-  for (i = 0; i <= argc; i++)
+  for (i = 0; i <= argc; i++) //TODO add <=
     if (argv[i] != NULL)
       msg ("argv[%d] = '%s'", i, argv[i]);
     else

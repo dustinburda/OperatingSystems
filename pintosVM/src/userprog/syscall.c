@@ -10,6 +10,8 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "filesys/file.h"
+#include "vm/page.h"
+#include "vm/logging.h"
 
 static void syscall_handler (struct intr_frame *);
 void halt_handler ();
@@ -39,11 +41,49 @@ static bool
 is_valid_range(void* addr_begin, void* addr_end) {
 //    printf("Is valid range\n");
     bool begin = is_valid_addr (addr_begin);
-//    printf("begin addr: 0x%x, begin bool: %d\n", addr_begin, begin != 0);
+    // printf("begin addr: 0x%x, begin bool: %d\n", addr_begin, begin != 0);
     bool end = is_valid_addr(addr_end);
-//    printf("end: 0x%x, end bool: %d\n", addr_end, end != 0);
+    // printf("end: 0x%x, end bool: %d\n", addr_end, end != 0);
     return begin && end;
 }
+
+#ifdef VM
+static bool
+is_valid_addr1(void* addr) {
+        if(!addr){
+//        printf("NULL!: 0x%x\n", addr);
+        return false;
+    }
+
+    if(!is_user_vaddr (addr)) {
+        // printf("Not valid user address\n");
+        return false;
+    }
+
+    return true;
+}
+
+
+// Returns true if page for virtual address exists and is installed
+static bool
+is_valid_addr2(void* addr) {
+    return pagedir_get_page(thread_current ()->pagedir, addr) != NULL;
+}
+
+void check_and_install(struct hash_elem* hash_element) {
+    struct vm_entry *vme = hash_entry(hash_element, struct vm_entry, h_elem);
+    if(is_valid_addr1(vme->VPN) && !is_valid_addr2(vme->VPN))
+        handle_mm_fault(vme);
+}
+
+struct hash_elem* hash_find_addr(void* addr) {
+    struct vm_entry key;
+    key.VPN = pg_round_down(addr);
+    struct hash_elem* vme = hash_find(& thread_current()->vm, & key.h_elem);
+    return vme;
+}
+
+#endif
 
 static bool
 is_valid_addr(void* addr) {
@@ -54,14 +94,17 @@ is_valid_addr(void* addr) {
     }
 
     if(!is_user_vaddr (addr)) {
+        // printf("Not valid user address\n");
         return false;
     }
 
-//    uint32_t* page_ptr = page_lookup (thread_current ()->pagedir, addr);
+    // printf("Before pagedir_get_page, adddr: 0x%x\n", addr);
+
+    // uint32_t* page_ptr = page_lookup (thread_current ()->pagedir, addr);
     uint32_t* page_ptr = pagedir_get_page(thread_current ()->pagedir, addr);
 
 //    if(!page_ptr){
-////        printf("Not valid address!: 0x%x\n", addr);
+//        printf("Not valid address!: 0x%x\n", addr);
 //    }
     return page_ptr != NULL;
 }
@@ -181,22 +224,24 @@ syscall_handler (struct intr_frame *f UNUSED)
           break;
       case SYS_OPEN:                   /* Open a file. */
       {
-          //printf("Opening... \n");
+          // printf("Opening..., child: %s\n", thread_current() ->name);
           esp += 1;
           if(!is_valid_range((void*)esp, (void*)esp + 3)) {
-              //printf("Not valid ptr\n");
+              // printf("Not valid ptr\n");
               b_handled = true;
               exit_handler(-1);
           }
           const char* filename = *esp;
           if(!is_valid_range((void*)filename, (void*)filename + 3)) {
-              //printf("Not valid filename ptr\n");
+              // printf("Not valid filename ptr\n");
               b_handled = true;
               exit_handler(-1);
           }
 
+          my_print1(SYS_CALL_LOGGING, "!!!!!!Before Open Handler\n");
           f->eax = open_handler(filename);
-            //printf("Successfully Opened... \n");
+          my_print1(SYS_CALL_LOGGING, "!!!!!!After Open Handler\n");
+          //printf("Successfully Opened... \n");
           b_handled = true;
       }
           break;
@@ -222,6 +267,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
           esp += 1;
           if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              //printf("Bad file descriptor\n");
               b_handled = true;
               exit_handler(-1);
           }
@@ -229,22 +275,45 @@ syscall_handler (struct intr_frame *f UNUSED)
 
           esp += 1;
           if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              //printf("Bad buffer ptr\n");
               b_handled = true;
               exit_handler(-1);
           }
           char* buffer = *esp;
-          if(!is_valid_range((void*)buffer, (void*)buffer + 3)) {
-              b_handled = true;
-              exit_handler(-1);
-          }
+
 
           esp += 1;
           if(!is_valid_range((void*)esp, (void*)esp + 3)) {
+              //printf("Bad size\n");
               b_handled = true;
               exit_handler(-1);
           }
           unsigned size = *esp;
+#ifdef VM
+//          my_print1(SYS_CALL_LOGGING, "___ in VM ___\n");
+          if(!is_valid_range((void*)buffer, (void*)buffer + size)) {
 
+              my_print4(SYS_CALL_LOGGING, "Bad buffer, buffer: 0x%x, buffer + %d = 0x%x\n", buffer, size, (buffer + size));
+
+              struct hash_elem* vme_found_begin = hash_find_addr(buffer);
+              struct hash_elem* vme_found_end = hash_find_addr(buffer + size);
+              if(vme_found_begin && vme_found_end) {
+                  my_print1(SYS_CALL_LOGGING, "Both pages found\n");
+                  // make check and install function
+                  check_and_install(vme_found_begin);
+                  check_and_install(vme_found_end);
+              } else {
+                  b_handled = true;
+                  exit_handler(-1);
+              }
+          }
+#else //VM
+          if(!is_valid_range((void*)buffer, (void*)buffer + size)) {
+              //printf("Bad buffer, buffer: 0x%x, buffer + %d = 0x%x\n", buffer, size, (buffer + size));
+                  b_handled = true;
+                  exit_handler(-1);
+          }
+#endif //VM
           f->eax = read_handler(fd, buffer, size);
 
           b_handled = true;
@@ -354,7 +423,7 @@ exit_handler(int status) {
     struct thread *t = thread_current ();
     t->exit_status = status;
     report_status (CS_KILLED, false, status);
-    printf("%s: exit(%d)\n", t->name);
+    printf("%s: exit(%d)\n", t->name, t->exit_status);
     thread_exit ();
 }
 
@@ -393,21 +462,26 @@ bool create_handler(const char* filename, unsigned size) {
 
 int open_handler(const char* filename) {
     int fd = -1;
+    my_print2(SYS_CALL_LOGGING, "--------------------- IN Open handler: %s\n", filename);
 
 
     lock_acquire (& file_sys_lock);
     struct file* opened_file = filesys_open(filename);
     if(opened_file) {
+        my_print2(SYS_CALL_LOGGING, "-----------------------filesys_open SUCCESS: %s\n", filename);
         if(!strcmp(thread_current ()->name, filename)) {
+           my_print2(SYS_CALL_LOGGING,"Denying: %s\n", filename);
             file_deny_write(opened_file);
         }
         int next_fd = thread_current ()->next_fd;
         thread_current ()->next_fd++;
         thread_current ()->file_dt[next_fd] = opened_file;
         fd = next_fd;
+    } else {
+        my_print2(SYS_CALL_LOGGING, "-----------------------filesys_open BAD: %s\n", filename);
+        //my_print2(SYS_CALL_LOGGING, "-----------------------filesys_open FAILURE: %s\n", filename);
     }
     lock_release (& file_sys_lock);
-
     return fd;
 }
 

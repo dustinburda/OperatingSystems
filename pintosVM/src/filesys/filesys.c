@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "vm/logging.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -72,7 +73,7 @@ filesys_open (const char *name)
   if (dir != NULL)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
-
+    my_print2(FILESYS_LOGGING, "in filesys_open, inode: 0x%x\n", inode);
   return file_open (inode);
 }
 

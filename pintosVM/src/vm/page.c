@@ -9,16 +9,23 @@ struct vm_entry* vm_entry_init (uint32_t VPN, bool write, enum page_type p_type,
                                 uint64_t offset, uint64_t size, bool in_memory) {
 
     struct vm_entry* p_vpage = malloc(PGSIZE);
-
+    //printf("In init, size: %zu\n", size);
     p_vpage->VPN = VPN;
     p_vpage->write = write;
     p_vpage->p_type = p_type;
     p_vpage->file_ptr = file_ptr;
     p_vpage->offset = offset;
     p_vpage->size = size;
+    //printf("In init, p_vpage->size: %zu\n", p_vpage->size);
     p_vpage->in_memory = in_memory;
 
     return p_vpage;
+}
+
+void
+print_vm_entry (struct vm_entry* vme) {
+    my_print8(PROCESS_LOGGING, "VPN: 0x%x, writeable: %d, page_type: %d, file_ptr: 0x%x, offset: %lld, size: %lld, in_memory: %d\n",
+            vme->VPN,  vme->write,    vme->p_type,   vme->file_ptr,  vme->offset, vme->size, vme->in_memory);
 }
 
 /* Returns a hash value for page p. */

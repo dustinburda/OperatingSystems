@@ -12,6 +12,7 @@
 static char buf[BUF_SIZE];
 
 #define CHILD_CNT 10
+// #define CHILD_CNT 2
 
 void
 test_main (void) 
@@ -25,6 +26,7 @@ test_main (void)
   CHECK (write (fd, buf, sizeof buf) > 0, "write \"%s\"", file_name);
   msg ("close \"%s\"", file_name);
   close (fd);
+
 
   exec_children ("child-syn-read", children, CHILD_CNT);
   wait_children (children, CHILD_CNT);

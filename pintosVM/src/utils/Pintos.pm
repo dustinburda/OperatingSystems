@@ -359,7 +359,8 @@ sub cyl_sectors {
 # Makes sure that the loader is a reasonable size.
 sub read_loader {
     my ($name) = @_;
-    $name = find_file ("/home/dustin/Desktop/PINTOS-Ubuntu/src/userprog/build/loader.bin") if !defined $name;
+    # $name = find_file ("/home/dustin/Desktop/PINTOS-Ubuntu/src/userprog/build/loader.bin") if !defined $name;
+    $name = find_file ("/home/dustin/Desktop/PINTOS-Ubuntu/src/vm/build/loader.bin") if !defined $name;
     die "Cannot find loader\n" if !defined $name;
 
     my ($handle);

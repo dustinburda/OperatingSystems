@@ -18,9 +18,11 @@
 1. ### Edit pintos
       Open pintos/src/utils/pintos and make the following changes:
       - Line 259: Replace `kernel.bin` with `/home/.../pintos/src/threads/build/kernel.bin`. Note that we're making it point to full path of kernel.bin
-1. ### Edit Pintos.pm
+      - For userprog or vm, replace src/threads/build/kernel.bin with src/userprog/build/kernel.bin or src/vm/build/kernel.bin
+2. ### Edit Pintos.pm
       Open pintos/src/utils/Pintos.pm and make the following change:
       - Line 362: Replace `loader.bin` with `/home/.../pintos/src/threads/build/loader.bin`
+      - For userprog or vm, replace src/threads/build/loader.bin with src/userprog/build/loader.bin or src/vm/build/loader.bin
 1. ### Export utils directory path to PATH variable
       Open ~/.bashrc and add this to the last line:
       ```export PATH=/home/.../pintos/src/utils:$PATH```
@@ -28,3 +30,4 @@
       ```source ~/.bashrc```
 1. ### Run pintos
       ```pintos run alarm-multiple```
+
